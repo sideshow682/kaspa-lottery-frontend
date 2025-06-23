@@ -1,108 +1,105 @@
 import { useEffect, useState } from 'react';
 
-export default function KaspaLotteryFront() {
+export default function KaspaLottery() {
   const [username, setUsername] = useState('');
   const [kaspaAddress, setKaspaAddress] = useState('');
   const [message, setMessage] = useState('');
   const [summary, setSummary] = useState({ winner: '', address: '', total: 0 });
   const [history, setHistory] = useState([]);
-  const [adminMode, setAdminMode] = useState(false);
   const [adminKey, setAdminKey] = useState('');
+  const [adminMode, setAdminMode] = useState(false);
 
+  const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://kaspa-lottery-backend.onrender.com';
   const LOCAL_ADMIN_KEY = 'kaspa123admin';
-  const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   useEffect(() => {
     fetchSummary();
     fetchHistory();
-    const savedKey = localStorage.getItem('kaspa-admin-key');
-    if (savedKey === LOCAL_ADMIN_KEY) setAdminMode(true);
+    const key = localStorage.getItem('kaspa-admin-key');
+    if (key === LOCAL_ADMIN_KEY) setAdminMode(true);
   }, []);
 
   const fetchSummary = async () => {
     try {
-      const res = await fetch(`${API_URL}/summary`);
+      const res = await fetch(`${API_BASE}/summary`);
       const data = await res.json();
       setSummary(data);
     } catch {
-      setMessage("Connection error with backend.");
+      setMessage("Can't connect to server.");
     }
   };
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/history`);
+      const res = await fetch(`${API_BASE}/history`);
       const data = await res.json();
       setHistory(data);
     } catch {}
   };
 
-  const isValidKaspaAddress = (address) => /^kaspa:q[a-z0-9]{60,70}$/.test(address);
+  const isValidKaspaAddress = (addr) => /^kaspa:q[a-z0-9]{60,70}$/.test(addr);
 
-  const submitTicket = async () => {
-    if (!username || !kaspaAddress) return setMessage('Name and address required.');
-    if (!isValidKaspaAddress(kaspaAddress)) return setMessage('Invalid Kaspa address format.');
+  const handleSubmit = async () => {
+    setMessage('');
+    if (!username || !kaspaAddress) return setMessage('Name and Kaspa address required.');
+    if (!isValidKaspaAddress(kaspaAddress)) return setMessage('Invalid Kaspa address.');
+
     try {
-      const res = await fetch(`${API_URL}/ticket`, {
+      const res = await fetch(`${API_BASE}/ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, address: kaspaAddress })
       });
       const data = await res.json();
-      if (res.ok) {
-        setMessage(data.message);
-        fetchSummary();
-      } else {
-        setMessage(data.message || "Failed to submit ticket.");
-      }
+      if (!res.ok) return setMessage(data.message);
+      setMessage(data.message);
+      fetchSummary();
     } catch {
-      setMessage("Network error. Ticket not submitted.");
+      setMessage('Submission failed.');
     }
   };
 
-  const forceDraw = async () => {
+  const handleAdminLogin = () => {
+    if (adminKey === LOCAL_ADMIN_KEY) {
+      setAdminMode(true);
+      localStorage.setItem('kaspa-admin-key', adminKey);
+    } else {
+      setMessage('Incorrect admin key.');
+    }
+  };
+
+  const handleDraw = async () => {
     try {
-      const res = await fetch(`${API_URL}/draw`);
+      const res = await fetch(`${API_BASE}/draw`);
       const data = await res.json();
       setMessage(`Winner: ${data.winner}`);
       fetchSummary();
       fetchHistory();
     } catch {
-      setMessage("Error during draw.");
-    }
-  };
-
-  const tryLoginAdmin = () => {
-    if (adminKey === LOCAL_ADMIN_KEY) {
-      setAdminMode(true);
-      localStorage.setItem('kaspa-admin-key', adminKey);
-    } else {
-      setMessage("Incorrect admin key.");
+      setMessage("Draw failed.");
     }
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'Arial', fontSize: 16 }}>
+    <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'Arial' }}>
       <h1 style={{ textAlign: 'center' }}>🎲 Kaspa Lottery</h1>
 
       <p><b>Last winner:</b> {summary.winner} ({summary.address})</p>
       <p><b>Total participants:</b> {summary.total}</p>
 
       <input
-        type="text"
         placeholder="Your name"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-        style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 6, border: '1px solid #ccc' }}
+        style={{ width: '100%', padding: 12, marginBottom: 10 }}
       />
       <input
-        type="text"
         placeholder="Your Kaspa address"
         value={kaspaAddress}
         onChange={(e) => setKaspaAddress(e.target.value)}
-        style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 6, border: '1px solid #ccc' }}
+        style={{ width: '100%', padding: 12, marginBottom: 10 }}
       />
-      <button onClick={submitTicket} style={{ width: '100%', padding: 12, backgroundColor: '#0057ff', color: 'white', borderRadius: 6, border: 'none' }}>
+      <button onClick={handleSubmit} style={{ width: '100%', padding: 12, backgroundColor: '#0057ff', color: '#fff', border: 'none' }}>
         Enter Lottery
       </button>
 
@@ -115,9 +112,9 @@ export default function KaspaLotteryFront() {
             placeholder="Admin key"
             value={adminKey}
             onChange={(e) => setAdminKey(e.target.value)}
-            style={{ padding: 10, width: '70%', borderRadius: 6, border: '1px solid #ccc' }}
+            style={{ padding: 10, width: '70%' }}
           />
-          <button onClick={tryLoginAdmin} style={{ padding: 10, marginLeft: 10, backgroundColor: '#333', color: 'white', borderRadius: 6 }}>
+          <button onClick={handleAdminLogin} style={{ padding: 10, marginLeft: 10 }}>
             Admin Access
           </button>
         </div>
@@ -126,8 +123,8 @@ export default function KaspaLotteryFront() {
       {adminMode && (
         <div style={{ marginTop: 30 }}>
           <h3>🛡️ Admin Panel</h3>
-          <button onClick={forceDraw} style={{ padding: 12, background: 'black', color: 'white', borderRadius: 6 }}>
-            🎯 Draw Winner
+          <button onClick={handleDraw} style={{ padding: 12, backgroundColor: '#000', color: '#fff' }}>
+            🎯 Manual Draw
           </button>
           <ul style={{ marginTop: 20 }}>
             {history.map((entry, i) => (
