@@ -10,6 +10,7 @@ export default function KaspaLotteryFront() {
   const [adminKey, setAdminKey] = useState('');
 
   const LOCAL_ADMIN_KEY = 'kaspa123admin';
+  const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
   useEffect(() => {
     fetchSummary();
@@ -20,7 +21,7 @@ export default function KaspaLotteryFront() {
 
   const fetchSummary = async () => {
     try {
-      const res = await fetch('https://kaspa-lottery-backend.onrender.com/summary');
+      const res = await fetch(`${API_URL}/summary`);
       const data = await res.json();
       setSummary(data);
     } catch {
@@ -30,21 +31,19 @@ export default function KaspaLotteryFront() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('https://kaspa-lottery-backend.onrender.com/history');
+      const res = await fetch(`${API_URL}/history`);
       const data = await res.json();
       setHistory(data);
     } catch {}
   };
 
-  const isValidKaspaAddress = (address) => {
-    return /^kaspa:q[a-z0-9]{60,70}$/.test(address);
-  };
+  const isValidKaspaAddress = (address) => /^kaspa:q[a-z0-9]{60,70}$/.test(address);
 
   const submitTicket = async () => {
     if (!username || !kaspaAddress) return setMessage('Name and address required.');
     if (!isValidKaspaAddress(kaspaAddress)) return setMessage('Invalid Kaspa address format.');
     try {
-      const res = await fetch('https://kaspa-lottery-backend.onrender.com/ticket', {
+      const res = await fetch(`${API_URL}/ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, address: kaspaAddress })
@@ -54,7 +53,7 @@ export default function KaspaLotteryFront() {
         setMessage(data.message);
         fetchSummary();
       } else {
-        setMessage(data.message || "Error submitting ticket.");
+        setMessage(data.message || "Failed to submit ticket.");
       }
     } catch {
       setMessage("Network error. Ticket not submitted.");
@@ -63,7 +62,7 @@ export default function KaspaLotteryFront() {
 
   const forceDraw = async () => {
     try {
-      const res = await fetch('https://kaspa-lottery-backend.onrender.com/draw');
+      const res = await fetch(`${API_URL}/draw`);
       const data = await res.json();
       setMessage(`Winner: ${data.winner}`);
       fetchSummary();
