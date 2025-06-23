@@ -1,4 +1,3 @@
-// === Kaspa Lottery Frontend with Green Theme, Countdown, and txid field ===
 import { useEffect, useState } from 'react';
 
 export default function Home() {
