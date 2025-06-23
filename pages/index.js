@@ -1,133 +1,141 @@
 import { useEffect, useState } from 'react';
 
-export default function Home() {
-  const [addresses, setAddresses] = useState([]);
+export default function KaspaLotteryFront() {
   const [username, setUsername] = useState('');
-  const [selectedAddress, setSelectedAddress] = useState('');
+  const [kaspaAddress, setKaspaAddress] = useState('');
   const [message, setMessage] = useState('');
   const [summary, setSummary] = useState({ winner: '', address: '', total: 0 });
   const [history, setHistory] = useState([]);
-  const [adminKey, setAdminKey] = useState('');
   const [adminMode, setAdminMode] = useState(false);
+  const [adminKey, setAdminKey] = useState('');
 
-  const fetchAddresses = async () => {
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/addresses');
-    const data = await res.json();
-    setAddresses(data.addresses);
-  };
+  const LOCAL_ADMIN_KEY = 'kaspa123admin';
+
+  useEffect(() => {
+    fetchSummary();
+    fetchHistory();
+    const savedKey = localStorage.getItem('kaspa-admin-key');
+    if (savedKey === LOCAL_ADMIN_KEY) setAdminMode(true);
+  }, []);
 
   const fetchSummary = async () => {
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/summary');
-    const data = await res.json();
-    setSummary(data);
+    try {
+      const res = await fetch('https://kaspa-lottery-backend.onrender.com/summary');
+      const data = await res.json();
+      setSummary(data);
+    } catch {
+      setMessage("Connection error with backend.");
+    }
   };
 
   const fetchHistory = async () => {
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/history');
-    const data = await res.json();
-    setHistory(data);
+    try {
+      const res = await fetch('https://kaspa-lottery-backend.onrender.com/history');
+      const data = await res.json();
+      setHistory(data);
+    } catch {}
   };
 
-  useEffect(() => {
-    fetchAddresses();
-    fetchSummary();
-    fetchHistory();
-    const saved = localStorage.getItem('kaspa-admin-key');
-    if (saved === 'kaspa123admin') setAdminMode(true);
-  }, []);
+  const isValidKaspaAddress = (address) => {
+    return /^kaspa:q[a-z0-9]{60,70}$/.test(address);
+  };
 
   const submitTicket = async () => {
-    if (!username || !selectedAddress) return setMessage('Champs requis.');
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/ticket', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, address: selectedAddress })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setMessage(data.message);
-      fetchSummary();
-    } else setMessage(data);
+    if (!username || !kaspaAddress) return setMessage('Name and address required.');
+    if (!isValidKaspaAddress(kaspaAddress)) return setMessage('Invalid Kaspa address format.');
+    try {
+      const res = await fetch('https://kaspa-lottery-backend.onrender.com/ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, address: kaspaAddress })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(data.message);
+        fetchSummary();
+      } else {
+        setMessage(data.message || "Error submitting ticket.");
+      }
+    } catch {
+      setMessage("Network error. Ticket not submitted.");
+    }
   };
 
   const forceDraw = async () => {
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/draw');
-    const data = await res.json();
-    setMessage("Gagnant : " + data.winner);
-    fetchSummary();
-    fetchHistory();
+    try {
+      const res = await fetch('https://kaspa-lottery-backend.onrender.com/draw');
+      const data = await res.json();
+      setMessage(`Winner: ${data.winner}`);
+      fetchSummary();
+      fetchHistory();
+    } catch {
+      setMessage("Error during draw.");
+    }
   };
 
   const tryLoginAdmin = () => {
-    if (adminKey === 'kaspa123admin') {
+    if (adminKey === LOCAL_ADMIN_KEY) {
       setAdminMode(true);
       localStorage.setItem('kaspa-admin-key', adminKey);
     } else {
-      setMessage("Clé admin incorrecte.");
+      setMessage("Incorrect admin key.");
     }
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'Arial' }}>
+    <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'Arial', fontSize: 16 }}>
       <h1 style={{ textAlign: 'center' }}>🎲 Kaspa Lottery</h1>
 
-      <p><b>Dernier gagnant :</b> {summary.winner} ({summary.address})</p>
-      <p><b>Total participants :</b> {summary.total}</p>
+      <p><b>Last winner:</b> {summary.winner} ({summary.address})</p>
+      <p><b>Total participants:</b> {summary.total}</p>
 
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="text"
-          placeholder="Ton nom"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          style={{ width: '100%', padding: 10, marginBottom: 10 }}
-        />
-        <select
-          value={selectedAddress}
-          onChange={(e) => setSelectedAddress(e.target.value)}
-          style={{ width: '100%', padding: 10 }}
-        >
-          <option value="">-- Adresse Kaspa --</option>
-          {addresses.map((a, i) => (
-            <option key={i} value={a}>{a}</option>
-          ))}
-        </select>
-        <button onClick={submitTicket} style={{ marginTop: 10, padding: 10, width: '100%' }}>
-          Participer
-        </button>
-      </div>
+      <input
+        type="text"
+        placeholder="Your name"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 6, border: '1px solid #ccc' }}
+      />
+      <input
+        type="text"
+        placeholder="Your Kaspa address"
+        value={kaspaAddress}
+        onChange={(e) => setKaspaAddress(e.target.value)}
+        style={{ width: '100%', padding: 12, marginBottom: 10, borderRadius: 6, border: '1px solid #ccc' }}
+      />
+      <button onClick={submitTicket} style={{ width: '100%', padding: 12, backgroundColor: '#0057ff', color: 'white', borderRadius: 6, border: 'none' }}>
+        Enter Lottery
+      </button>
 
-      {message && <p style={{ color: 'green' }}>{message}</p>}
-
-      <hr />
+      {message && <p style={{ color: 'green', marginTop: 10 }}>{message}</p>}
 
       {!adminMode && (
         <div style={{ marginTop: 30 }}>
           <input
             type="password"
-            placeholder="Clé admin"
+            placeholder="Admin key"
             value={adminKey}
             onChange={(e) => setAdminKey(e.target.value)}
-            style={{ padding: 8, width: '70%' }}
+            style={{ padding: 10, width: '70%', borderRadius: 6, border: '1px solid #ccc' }}
           />
-          <button onClick={tryLoginAdmin} style={{ padding: 8, marginLeft: 10 }}>
-            Accès admin
+          <button onClick={tryLoginAdmin} style={{ padding: 10, marginLeft: 10, backgroundColor: '#333', color: 'white', borderRadius: 6 }}>
+            Admin Access
           </button>
         </div>
       )}
 
       {adminMode && (
-        <>
-          <h3>🛡️ Panneau Admin</h3>
-          <button onClick={forceDraw} style={{ padding: 10, background: 'black', color: 'white' }}>
-            🎯 Tirer un gagnant
+        <div style={{ marginTop: 30 }}>
+          <h3>🛡️ Admin Panel</h3>
+          <button onClick={forceDraw} style={{ padding: 12, background: 'black', color: 'white', borderRadius: 6 }}>
+            🎯 Draw Winner
           </button>
           <ul style={{ marginTop: 20 }}>
             {history.map((entry, i) => (
               <li key={i}>{entry.date.split('T')[0]} – {entry.winner} ({entry.address})</li>
             ))}
           </ul>
-        </>
+        </div>
       )}
     </div>
   );
